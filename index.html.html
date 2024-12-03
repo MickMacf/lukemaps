@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Client HQ Map</title>
+    <style>
+        /* This makes the map fill the entire screen */
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <h1>Client HQ Map</h1>
+    <div id="map"></div>
+
+    <script>
+        function initMap() {
+            // Create a map centered on the United States
+            const map = new google.maps.Map(document.getElementById('map'), {
+                zoom: 4,
+                center: { lat: 37.0902, lng: -95.7129 } // Centered on the US
+            });
+
+            // Google Sheets URL (replace with your actual sheet's CSV URL)
+            const sheetUrl = 'https://cors-anywhere.herokuapp.com/https://docs.google.com/spreadsheets/d/e/2PACX-1vTw-zcg7xY0Ly7Z5PxTat2hMVpJmM3Cd2S1PnQztfQArmKxexaaWhGLH1TmjnC4fw/pub?gid=605266728&single=true&output=csv'; // Add proxy to bypass CORS
+
+            // Fetch data from Google Sheets
+            fetch(sheetUrl)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok: ' + response.statusText);
+                    }
+                    return response.text();
+                })
+                .then(csv => {
+                    // Parse the CSV into an array of rows
+                    const rows = csv.split('\n').slice(1); // Skip the header row
+
+                    rows.forEach(row => {
+                        const [company, city, state, zip, phone, address] = row.split(',');
+
+                        // Check for empty addresses or missing data
+                        if (!address) {
+                            console.error(`Skipping entry for ${company} due to missing address.`);
+                            return;
+                        }
+
+                        // Log the address for debugging purposes
+                        console.log(`Geocoding: ${address}`);
+
+                        // Geocode each address to get coordinates
+                        const geocoder = new google.maps.Geocoder();
+                        geocoder.geocode({ address: address }, (results, status) => {
+                            if (status === 'OK') {
+                                const position = results[0].geometry.location;
+
+                                // Create a simple marker
+                                const marker = new google.maps.Marker({
+                                    map: map,
+                                    position: position
+                                });
+
+                                // Add an info window that pops up when the marker is clicked
+                                const infoWindow = new google.maps.InfoWindow({
+                                    content: `
+                                        <h3>${company}</h3>
+                                        <p>Address: ${address}</p>
+                                        <p>City: ${city}</p>
+                                        <p>State: ${state}</p>
+                                        <p>ZIP: ${zip}</p>
+                                        <p>Phone: ${phone}</p>
+                                    `
+                                });
+
+                                marker.addListener('click', () => {
+                                    infoWindow.open(map, marker);
+                                });
+
+                                console.log(`Marker added for: ${company}`);
+                            } else {
+                                console.error(`Geocode failed for ${company}: ${status}`);
+                            }
+                        });
+                    });
+                })
+                .catch(error => console.error('Error fetching data:', error));
+        }
+    </script>
+
+    <!-- Load the Google Maps API -->
+    <script async defer
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCDhl5EmDD99bUWDDReaxkWN0JuF6S3Kxo&callback=initMap">
+    </script>
+</body>
+</html>
